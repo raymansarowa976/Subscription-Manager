@@ -6,6 +6,9 @@ from django.urls import reverse
 from smtplib import SMTPAuthenticationError
 from unittest.mock import patch
 import re
+import socket
+
+from django.conf import settings
 
 
 User = get_user_model()
@@ -201,6 +204,41 @@ class FrontendIntegrationTest(TestCase):
         self.assertContains(response, "We could not send your verification token.")
         self.assertNotIn("_auth_user_id", self.client.session)
         self.assertEqual(len(mail.outbox), 0)
+
+    def test_login_email_timeout_returns_visible_error_without_hanging(self):
+        # Regression test: a blocked/unreachable SMTP host used to hang the
+        # connection forever (no EMAIL_TIMEOUT), stalling the request until
+        # gunicorn killed the whole worker instead of this view's own
+        # SMTPException/OSError handling ever running. socket.timeout (a
+        # TimeoutError/OSError subclass) is what smtplib raises once the
+        # connection actually respects EMAIL_TIMEOUT.
+        user = User.objects.create_user(
+            username="mailtimeout",
+            email="mailtimeout@gmail.com",
+            password="Complex123!",
+            is_active=True,
+        )
+
+        with patch(
+            "users.auth.views.send_verification_token_email",
+            side_effect=socket.timeout("timed out"),
+        ), patch("users.auth.views.logger.exception"):
+            response = self.client.post(
+                self.login_url,
+                {"username": user.username, "password": "Complex123!"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "We could not send your verification token.")
+        self.assertNotIn("_auth_user_id", self.client.session)
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_email_timeout_setting_is_configured(self):
+        # Guards against a regression where EMAIL_TIMEOUT is removed or set
+        # to None/0, which would let a blocked SMTP host hang indefinitely
+        # again (see WORKER TIMEOUT incident on login).
+        self.assertIsNotNone(settings.EMAIL_TIMEOUT)
+        self.assertGreater(settings.EMAIL_TIMEOUT, 0)
 
     def test_login_page_links_to_account_recovery(self):
         response = self.client.get(self.login_url)

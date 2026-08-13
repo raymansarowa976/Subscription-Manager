@@ -139,6 +139,11 @@ EMAIL_HOST_USER = env('EMAIL_HOST_USER', default='')
 EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD', default='')
 EMAIL_USE_TLS = env.bool('EMAIL_USE_TLS', default=True)
 EMAIL_USE_SSL = env.bool('EMAIL_USE_SSL', default=False)
+# Without a timeout, a blocked/unreachable SMTP host hangs the connection
+# indefinitely, which stalls the request until gunicorn kills the whole
+# worker on WORKER TIMEOUT instead of the view's own SMTPException handling
+# ever running.
+EMAIL_TIMEOUT = env.int('EMAIL_TIMEOUT', default=10)
 IMAP_HOST = env('IMAP_HOST', default='imap.gmail.com')
 IMAP_PORT = env.int('IMAP_PORT', default=993)
 IMAP_USERNAME = env('IMAP_USERNAME', default=EMAIL_HOST_USER)
