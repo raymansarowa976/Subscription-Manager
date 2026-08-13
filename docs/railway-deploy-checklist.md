@@ -46,6 +46,7 @@
 - [x] `EMAIL_HOST_PASSWORD` — new rotated app password
 - [x] `EMAIL_USE_TLS=True`
 - [x] `EMAIL_USE_SSL=False`
+- [x] `EMAIL_TIMEOUT=10` — bounds the SMTP connection so a blocked/slow host fails fast instead of hanging the gunicorn worker
 - [x] `GMAIL_OAUTH_CLIENT_ID`
 - [x] `GMAIL_OAUTH_CLIENT_SECRET` — new rotated secret
 - [x] `GMAIL_OAUTH_REDIRECT_URI=https://<your-app>.up.railway.app/accounts/email/gmail/callback/`
